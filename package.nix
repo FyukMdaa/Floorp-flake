@@ -1,39 +1,61 @@
-{ stdenv
-, fetchurl
-, lib
-, autoPatchelfHook
-, wrapGAppsHook3
-, alsa-lib
-, atk
-, cairo
-, curl
-, dbus
-, dbus-glib
-, fontconfig
-, freetype
-, gdk-pixbuf
-, glib
-, gtk3
-, libxkbcommon
-, libX11
-, libXcomposite
-, libXcursor
-, libXdamage
-, libXext
-, libXfixes
-, libXi
-, libXrandr
-, libXrender
-, libXtst
-, mesa
-, nspr
-, nss
-, pango
-, pipewire
-, systemd
-, wayland
+{
+  stdenv,
+  lib,
+  fetchurl,
+  autoPatchelfHook,
+  wrapGAppsHook3,
+  patchelfUnstable,
+  writeText,
+
+  # Build Inputs
+  alsa-lib,
+  at-spi2-core,
+  cairo,
+  cups,
+  curl,
+  dbus,
+  dbus-glib,
+  fontconfig,
+  freetype,
+  gdk-pixbuf,
+  glib,
+  gtk3,
+  libglvnd,
+  libpulseaudio,
+  libdrm,
+  libX11,
+  libXcomposite,
+  libXcursor,
+  libXdamage,
+  libXext,
+  libXfixes,
+  libXi,
+  libXrandr,
+  libXrender,
+  libXScrnSaver,
+  libXtst,
+  mesa,
+  nspr,
+  nss,
+  pango,
+  pciutils,
+  pipewire,
+  stdenv.cc.cc,
+  systemd,
+  wayland,
+  zlib,
+  adwaita-icon-theme,
+  libva,
 }:
 
+let
+  policies = {
+    DisableAppUpdate = true;
+    DisableTelemetry = true;
+  };
+  policiesJson = writeText "floorp-policies.json" (builtins.toJSON { inherit policies; });
+
+in
 stdenv.mkDerivation rec {
   pname = "floorp";
   version = "12.7.0";
@@ -46,49 +68,50 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [
     autoPatchelfHook
     wrapGAppsHook3
+    patchelfUnstable
   ];
 
   buildInputs = [
     alsa-lib
-    atk
+    at-spi2-core
     cairo
-    curl
-    dbus
+    cups
     dbus-glib
     fontconfig
     freetype
     gdk-pixbuf
     glib
     gtk3
-    libxkbcommon
-    libX11
-    libXcomposite
-    libXcursor
-    libXdamage
-    libXext
-    libXfixes
-    libXi
-    libXrandr
-    libXrender
+    libpulseaudio
     libXtst
-    mesa
-    nspr
-    nss
-    pango
-    pipewire
-    stdenv.cc.cc
-    systemd
-    wayland
+    adwaita-icon-theme
   ];
+
+  runtimeDependencies = [
+    curl
+    pciutils
+    libva.out
+  ];
+
+  appendRunpaths = [
+    "${pipewire}/lib"
+  ];
+
+  patchelfFlags = [ "--no-clobber-old-sections" ];
 
   installPhase = ''
     runHook preInstall
 
+    rm -v updater updater.ini icons/updater.png update-settings.ini
+
     mkdir -p $out/lib/floorp
-    cp -r * $out/lib/floorp
+    cp -r . $out/lib/floorp
 
     mkdir -p $out/bin
     ln -s $out/lib/floorp/floorp $out/bin/floorp
+
+    mkdir -p $out/lib/floorp/distribution
+    ln -s ${policiesJson} $out/lib/floorp/distribution/policies.json
 
     # Desktop entry
     mkdir -p $out/share/applications
@@ -121,5 +144,6 @@ stdenv.mkDerivation rec {
     license = licenses.mpl20;
     platforms = [ "x86_64-linux" ];
     maintainers = [ ];
+    mainProgram = "floorp";
   };
 }
