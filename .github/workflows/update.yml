@@ -8,9 +8,16 @@ on:
 jobs:
   update:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0  # 完全な履歴を取得
 
       - name: Install Nix
         uses: cachix/install-nix-action@v26
@@ -19,44 +26,45 @@ jobs:
             experimental-features = nix-command flakes
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update Floorp package
-        # Run nix-update with --version=skip to update hashes and metadata before fetching the latest version.
-        # The actual update to the latest version is performed in the next step.
+      - name: Get current Floorp version
+        id: current
         run: |
-          nix run github:Mic92/nix-update -- floorp --flake --version=skip
+          VERSION=$(grep 'version = ' package.nix | sed 's/.*"\(.*\)".*/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $VERSION"
 
       - name: Get latest Floorp version
         id: latest
         run: |
           VERSION=$(curl -s https://api.github.com/repos/Floorp-Projects/Floorp/releases/latest | jq -r .tag_name | sed 's/^v//')
-      - name: Check if version was retrieved
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Latest version: $VERSION"
+
+      - name: Check if update is needed
+        id: check
         run: |
-          if [ -z "${{ steps.latest.outputs.version }}" ]; then
-            echo "Failed to retrieve Floorp version."
-            exit 1
+          if [ "${{ steps.current.outputs.version }}" = "${{ steps.latest.outputs.version }}" ]; then
+            echo "update-needed=false" >> $GITHUB_OUTPUT
+            echo "No update needed. Current version is already the latest."
+          else
+            echo "update-needed=true" >> $GITHUB_OUTPUT
+            echo "Update needed: ${{ steps.current.outputs.version }} → ${{ steps.latest.outputs.version }}"
           fi
-      - name: Sanitize version for branch name
-        id: sanitize
+
+      - name: Update Floorp package
+        if: steps.check.outputs.update-needed == 'true'
         run: |
-          SAFE_VERSION=$(echo "${{ steps.latest.outputs.version }}" | sed 's/[^a-zA-Z0-9._-]/-/g' | tr -s '-')
-          echo "safe_version=$SAFE_VERSION" >> $GITHUB_OUTPUT
+          echo "Updating Floorp to version ${{ steps.latest.outputs.version }}"
           nix run github:Mic92/nix-update -- floorp --flake --version=${{ steps.latest.outputs.version }}
 
-      - name: Sanitize version for branch name
-        id: sanitize
-        run: |
-          SAFE_VERSION=$(echo "${{ steps.latest.outputs.version }}" | sed 's/[^a-zA-Z0-9._-]/-/g')
-          echo "safe_version=$SAFE_VERSION" >> $GITHUB_OUTPUT
-
       - name: Test build
+        if: steps.check.outputs.update-needed == 'true'
         run: |
-          set -o pipefail
-          nix build .#floorp --print-build-logs > build.log 2>&1 || (cat build.log && exit 1)
-      # peter-evans/create-pull-request@v6 を利用する理由:
-      # 自動更新された Floorp パッケージの変更を新しいブランチにコミットし、Pull Request を自動作成するために利用しています。
-      # 設定では、コミットメッセージやPRタイトルにバージョン番号を含め、ビルドが成功したことやハッシュが自動更新されたことをPR本文に記載しています。
-      # また、PR作成後は一時的なブランチを自動削除するようにしています。
+          echo "Testing build for Floorp ${{ steps.latest.outputs.version }}"
+          nix build .#floorp --print-build-logs
+
       - name: Create Pull Request
+        if: steps.check.outputs.update-needed == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -67,6 +75,11 @@ jobs:
             
             - Build tested successfully
             - Hash automatically updated by nix-update
-          branch: update-floorp-${{ steps.sanitize.outputs.safe_version }}
-          delete-branch: truerp-${{ steps.sanitize.outputs.safe_version }}
+            
+            **Changes:**
+            - Version: ${{ steps.current.outputs.version }} → ${{ steps.latest.outputs.version }}
+          branch: update-floorp-${{ steps.latest.outputs.version }}
           delete-branch: true
+          labels: |
+            automated-update
+            dependencies
