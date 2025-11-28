@@ -20,6 +20,8 @@ jobs:
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
 
       - name: Update Floorp package
+        # Run nix-update with --version=skip to update hashes and metadata before fetching the latest version.
+        # The actual update to the latest version is performed in the next step.
         run: |
           nix run github:Mic92/nix-update -- floorp --flake --version=skip
 
@@ -27,19 +29,35 @@ jobs:
         id: latest
         run: |
           VERSION=$(curl -s https://api.github.com/repos/Floorp-Projects/Floorp/releases/latest | jq -r .tag_name | sed 's/^v//')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Update to latest version
+      - name: Check if version was retrieved
         run: |
+          if [ -z "${{ steps.latest.outputs.version }}" ]; then
+            echo "Failed to retrieve Floorp version."
+            exit 1
+          fi
+      - name: Sanitize version for branch name
+        id: sanitize
+        run: |
+          SAFE_VERSION=$(echo "${{ steps.latest.outputs.version }}" | sed 's/[^a-zA-Z0-9._-]/-/g' | tr -s '-')
+          echo "safe_version=$SAFE_VERSION" >> $GITHUB_OUTPUT
           nix run github:Mic92/nix-update -- floorp --flake --version=${{ steps.latest.outputs.version }}
+
+      - name: Sanitize version for branch name
+        id: sanitize
+        run: |
+          SAFE_VERSION=$(echo "${{ steps.latest.outputs.version }}" | sed 's/[^a-zA-Z0-9._-]/-/g')
+          echo "safe_version=$SAFE_VERSION" >> $GITHUB_OUTPUT
 
       - name: Test build
         run: |
-          nix build .#floorp --print-build-logs
-
+          set -o pipefail
+          nix build .#floorp --print-build-logs > build.log 2>&1 || (cat build.log && exit 1)
+      # peter-evans/create-pull-request@v6 を利用する理由:
+      # 自動更新された Floorp パッケージの変更を新しいブランチにコミットし、Pull Request を自動作成するために利用しています。
+      # 設定では、コミットメッセージやPRタイトルにバージョン番号を含め、ビルドが成功したことやハッシュが自動更新されたことをPR本文に記載しています。
+      # また、PR作成後は一時的なブランチを自動削除するようにしています。
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
-        if: success()
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore: update floorp to ${{ steps.latest.outputs.version }}"
@@ -49,5 +67,6 @@ jobs:
             
             - Build tested successfully
             - Hash automatically updated by nix-update
-          branch: update-floorp-${{ steps.latest.outputs.version }}
+          branch: update-floorp-${{ steps.sanitize.outputs.safe_version }}
+          delete-branch: truerp-${{ steps.sanitize.outputs.safe_version }}
           delete-branch: true
