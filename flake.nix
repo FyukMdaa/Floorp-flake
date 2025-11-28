@@ -8,19 +8,24 @@
   outputs = { self, nixpkgs }:
     let
       system = "x86_64-linux";
-      pkgs = nixpkgs.legacyPackages.${system};
     in
     {
       packages.${system} = {
-        floorp = pkgs.callPackage ./package.nix { };
+        floorp = nixpkgs.legacyPackages.${system}.callPackage ./package.nix { };
         default = self.packages.${system}.floorp;
       };
 
       overlays.default = final: prev: {
-        floorp = self.packages.${final.system}.floorp;
+        # `self.packages`を参照せず、直接パッケージを定義する
+        floorp = final.callPackage ./package.nix { };
+      };
+      
+      # `floorp.overlay` でアクセスできるようにする
+      floorp = {
+        overlay = self.overlays.default;
       };
 
-      # NixOS configuration.nixから使いやすくする
+      # NixOSモジュールも標準通りに提供
       nixosModules.default = { config, lib, pkgs, ... }: {
         nixpkgs.overlays = [ self.overlays.default ];
       };
