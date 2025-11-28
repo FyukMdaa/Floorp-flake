@@ -40,7 +40,6 @@
   pango,
   pciutils,
   pipewire,
-  stdenv.cc.cc,
   systemd,
   wayland,
   zlib,
