@@ -21,7 +21,7 @@ NixOS用のFloorpブラウザflakeです。nixpkgsよりも upstream のリリ�
       system = "x86_64-linux";
       modules = [
         {
-          nixpkgs.overlays = [ floorp.overlay ];
+          nixpkgs.overlays = [ floorp.overlays.default ];
 
           environment.systemPackages = [ pkgs.floorp ];
         }
