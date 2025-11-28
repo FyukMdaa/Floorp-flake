@@ -39,7 +39,7 @@ stdenv.mkDerivation rec {
   version = "12.7.0";
 
   src = fetchurl {
-    url = "https://github.com/Floorp-Projects/Floorp/releases/download/v${version}/floorp-${version}.linux-x86_64.tar.xz";
+    url = "https://github.com/Floorp-Projects/Floorp/releases/download/v${version}/floorp-linux-x86_64.tar.xz";
     hash = ""; # nix-update will fill this
   };
 
