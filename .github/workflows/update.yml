@@ -1,0 +1,53 @@
+name: Update Floorp
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 毎日0時にチェック
+  workflow_dispatch:  # 手動実行も可能
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v26
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Floorp package
+        run: |
+          nix run github:Mic92/nix-update -- floorp --flake --version=skip
+
+      - name: Get latest Floorp version
+        id: latest
+        run: |
+          VERSION=$(curl -s https://api.github.com/repos/Floorp-Projects/Floorp/releases/latest | jq -r .tag_name | sed 's/^v//')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update to latest version
+        run: |
+          nix run github:Mic92/nix-update -- floorp --flake --version=${{ steps.latest.outputs.version }}
+
+      - name: Test build
+        run: |
+          nix build .#floorp --print-build-logs
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        if: success()
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update floorp to ${{ steps.latest.outputs.version }}"
+          title: "Update Floorp to ${{ steps.latest.outputs.version }}"
+          body: |
+            Automated update of Floorp to version ${{ steps.latest.outputs.version }}
+            
+            - Build tested successfully
+            - Hash automatically updated by nix-update
+          branch: update-floorp-${{ steps.latest.outputs.version }}
+          delete-branch: true

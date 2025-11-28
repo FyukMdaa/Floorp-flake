@@ -10,7 +10,7 @@ NixOS用のFloorpブラウザflakeです。nixpkgsより早く最新版を使え
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    floorp.url = "github:yourusername/floorp-flake";
+    floorp.url = "github:fyukmdaa/floorp-flake";
   };
 
   outputs = { self, nixpkgs, floorp, ... }: {
@@ -30,7 +30,7 @@ NixOS用のFloorpブラウザflakeです。nixpkgsより早く最新版を使え
 
 ```nix
 {
-  inputs.floorp.url = "github:yourusername/floorp-flake";
+  inputs.floorp.url = "github:fyukmdaa/floorp-flake";
   
   outputs = { nixpkgs, floorp, ... }: {
     nixosConfigurations.yourhostname = nixpkgs.lib.nixosSystem {
