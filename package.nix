@@ -30,7 +30,6 @@
 , nss
 , pango
 , pipewire
-, stdenv
 , systemd
 , wayland
 }:
