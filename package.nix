@@ -40,7 +40,7 @@ stdenv.mkDerivation rec {
 
   src = fetchurl {
     url = "https://github.com/Floorp-Projects/Floorp/releases/download/v${version}/floorp-linux-x86_64.tar.xz";
-    hash = ""; # nix-update will fill this
+    hash = "sha256-jpfLrHCQzDc062POI+aUlaAIDciBxhI7GzsYvHtt72I=";
   };
 
   nativeBuildInputs = [
