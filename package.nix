@@ -2,7 +2,7 @@
 , fetchurl
 , lib
 , autoPatchelfHook
-, wrapGAppsHook
+, wrapGAppsHook3
 , alsa-lib
 , atk
 , cairo
@@ -36,7 +36,7 @@
 
 stdenv.mkDerivation rec {
   pname = "floorp";
-  version = "11.18.1";
+  version = "12.7.0";
 
   src = fetchurl {
     url = "https://github.com/Floorp-Projects/Floorp/releases/download/v${version}/floorp-${version}.linux-x86_64.tar.bz2";
