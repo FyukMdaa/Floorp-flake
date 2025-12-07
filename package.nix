@@ -57,11 +57,11 @@ let
 in
 stdenv.mkDerivation rec {
   pname = "floorp";
-  version = "12.8.2";
+  version = "12.8.3";
 
   src = fetchurl {
     url = "https://github.com/Floorp-Projects/Floorp/releases/download/v${version}/floorp-linux-x86_64.tar.xz";
-    hash = "sha256-r2tRvhBHbQi408uybOLJOBNw1DvXYbrJ6Si+eOqTIhA=";
+    hash = "sha256-DmZCyFhP3N6VPTR3OeuHyrLmvcfUZXHeLsn/TTu+I10=";
   };
 
   nativeBuildInputs = [
