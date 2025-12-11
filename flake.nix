@@ -14,21 +14,16 @@
     forAllSystems = nixpkgs.lib.genAttrs systems;
     pkgsFor = forAllSystems (system: nixpkgs.legacyPackages.${system});
 
-    # sources.json を読み込む
-    sources = builtins.fromJSON (builtins.readFile "${self}/sources.json");
-
   in {
     overlays.default = final: prev: {
       floorp-bin-unwrapped = prev.floorp-bin-unwrapped.overrideAttrs (oldAttrs: {
+        # sources.json を読み込む
         sources = builtins.fromJSON (builtins.readFile "${self}/sources.json");
 
         version = sources.version;
-        sourceInfo = sources.sources.${final.stdenv.hostPlatform.system} or (throw "Unsupported system: ${final.stdenv.hostPlatform.system}");
-
-        src = final.fetchurl {
-          url = final.sourceInfo.url;
-          sha256 = final.sourceInfo.sha256;
-        };
+        src = final.fetchurl (
+          sources.sources.${final.stdenv.hostPlatform.system} or (throw "Unsupported system: ${final.stdenv.hostPlatform.system}")
+        );
       });
 
       floorp-bin = final.wrapFirefox final.floorp-bin-unwrapped {};
