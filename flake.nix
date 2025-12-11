@@ -1,33 +1,46 @@
 {
-  description = "Floorp browser - A customizable Firefox fork";
-
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
-  outputs = { self, nixpkgs }:
-    let
-      system = "x86_64-linux";
-    in
-    {
-      packages.${system} = {
-        floorp = nixpkgs.legacyPackages.${system}.callPackage ./package.nix { };
-        default = self.packages.${system}.floorp;
-      };
+  outputs = { self, nixpkgs }: let
+    systems = [
+      "x86_64-linux"
+      "aarch64-linux"
+      "x86_64-darwin"
+      "aarch64-darwin"
+    ];
 
-      overlays.default = final: prev: {
-        # `self.packages`を参照せず、直接パッケージを定義する
-        floorp = final.callPackage ./package.nix { };
-      };
-      
-      # `floorp.overlay` でアクセスできるようにする
-      floorp = {
-        overlay = self.overlays.default;
-      };
+    forAllSystems = nixpkgs.lib.genAttrs systems;
+    pkgsFor = forAllSystems (system: nixpkgs.legacyPackages.${system});
 
-      # NixOSモジュールも標準通りに提供
-      nixosModules.default = { config, lib, pkgs, ... }: {
-        nixpkgs.overlays = [ self.overlays.default ];
-      };
+    # sources.json を読み込む
+    sources = builtins.fromJSON (builtins.readFile "${self}/sources.json");
+
+  in {
+    overlays.default = final: prev: {
+      floorp-bin-unwrapped = prev.floorp-bin-unwrapped.overrideAttrs (oldAttrs: {
+        # sources.json からバージョンとソース情報を取得
+        version = sources.version;
+        sourceInfo = sources.sources.${final.stdenv.hostPlatform.system} or (throw "Unsupported system: ${final.stdenv.hostPlatform.system}");
+
+        src = final.fetchurl {
+          url = final.sourceInfo.url;
+          sha256 = final.sourceInfo.sha256;
+        };
+      });
+
+      floorp-bin = final.wrapFirefox final.floorp-bin-unwrapped {};
     };
+
+    packages = forAllSystems (system: {
+      default = (pkgsFor.${system}.extend self.overlays.default).floorp-bin;
+    });
+
+    devShells = forAllSystems (system: {
+      default = pkgsFor.${system}.mkShell {
+        buildInputs = [ (pkgsFor.${system}.extend self.overlays.default).floorp-bin ];
+      };
+    });
+  };
 }

@@ -31,6 +31,32 @@ NixOS用のFloorpブラウザflakeです。nixpkgsよりも upstream のリリ�
 }
 ```
 
+### Home-managerで使う場合
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    floorp.url = "github:fyukmdaa/floorp-flake";
+    home-manager = "github:nix-community/home-manager";
+  };
+
+  outputs = { nixpkgs, floorp, home-manager, ... }: {
+    homeConfigurations."yourusername" = home-manager.lib.homeManagerConfiguration {
+      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+      extraSpecialArgs = { inherit floorp; };
+
+      modules = [
+        {
+          nixpkgs.overlays = [ floorp.overlays.default ];
+          home.packages = [ pkgs.floorp ];
+        }
+      ];
+    };
+  };
+}
+```
+
 ### Overlayを使わない場合
 
 `floorp.packages.x86_64-linux.floorp` は、flakeの `outputs.packages` から直接 Floorp パッケージを参照しています。
@@ -60,7 +86,7 @@ NixOS用のFloorpブラウザflakeです。nixpkgsよりも upstream のリリ�
 ```
 .
 ├── flake.nix           # flake定義
-├── package.nix         # パッケージビルド定義
+├── sources.json        # バージョン、URL、ハッシュ値の定義
 ├── .github/
 │   └── workflows/
 │       └── update.yml  # 自動更新workflow
@@ -74,5 +100,14 @@ GitHub Actionsが毎日自動でFloorpの最新版をチェックし、新しい
 ### 自動PR作成の仕組み
 
 - `.github/workflows/update.yml` により、毎日定期的にFloorpの新しいリリースをチェックします。
-- 新しいバージョンが見つかった場合、`package.nix` などバージョン情報を含むファイルが自動で更新され、PRが作成されます。
+- 新しいバージョンが見つかった場合、`sources.json` などバージョン情報を含むファイルが自動で更新され、PRが作成されます。
 - これにより、常に最新のFloorpを簡単に取り込むことができます。
+
+# 謝辞
+**[Floorp](https://github.com/Floorp-Projects/Floorp)**  
+最高のブラウザです。  
+
+
+**[nixpkgs/floorp-bin-unwrapped](https://github.com/NixOS/nixpkgs/tree/7241bcbb4f099a66aafca120d37c65e8dda32717/pkgs/by-name/fl/floorp-bin-unwrapped)**   
+**[nixpkgs/firefox-wrapper.nix](https://github.com/NixOS/nixpkgs/blob/7241bcbb4f099a66aafca120d37c65e8dda32717/pkgs/applications/networking/browsers/firefox/wrapper.nix)**   
+このFlakeを作る時にとても参考になりました。

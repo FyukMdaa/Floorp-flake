@@ -1,9 +1,9 @@
-name: Update Floorp
+name: Update Floorp Sources
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 毎日0時にチェック
-  workflow_dispatch:  # 手動実行も可能
+    - cron: '0 9 * * *'
+  workflow_dispatch:
 
 jobs:
   update:
@@ -11,75 +11,90 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0  # 完全な履歴を取得
 
       - name: Install Nix
-        uses: cachix/install-nix-action@v26
+        uses: cachix/install-nix-action@v22
         with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+          nix_path: nixpkgs=channel:nixos-unstable
 
-      - name: Get current Floorp version
-        id: current
+      - name: Fetch latest Floorp release info
+        id: fetch_release
         run: |
-          VERSION=$(grep 'version = ' package.nix | sed 's/.*"\(.*\)".*/\1/')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Current version: $VERSION"
+          RELEASE_INFO=$(curl -s https://api.github.com/repos/Floorp-Projects/Floorp/releases/latest)
+          LATEST_VERSION=$(echo "$RELEASE_INFO" | jq -r .tag_name | sed 's/v//')
+          ASSETS_JSON=$(echo "$RELEASE_INFO" | jq '.assets')
 
-      - name: Get latest Floorp version
-        id: latest
-        run: |
-          VERSION=$(curl -s https://api.github.com/repos/Floorp-Projects/Floorp/releases/latest | jq -r .tag_name | sed 's/^v//')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Latest version: $VERSION"
+          echo "Latest version: $LATEST_VERSION"
+          echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+          echo "assets_json=$ASSETS_JSON" >> $GITHUB_OUTPUT
 
-      - name: Check if update is needed
-        id: check
+      - name: Generate new sources.json
         run: |
-          if [ "${{ steps.current.outputs.version }}" = "${{ steps.latest.outputs.version }}" ]; then
-            echo "update-needed=false" >> $GITHUB_OUTPUT
-            echo "No update needed. Current version is already the latest."
+          # 各アーキテクチャーのURLを取得
+          LINUX_X64_URL=$(echo '${{ steps.fetch_release.outputs.assets_json }}' | jq -r '.[] | select(.name == "floorp-linux-x86_64.tar.xz") | .browser_download_url')
+          LINUX_ARM_URL=$(echo '${{ steps.fetch_release.outputs.assets_json }}' | jq -r '.[] | select(.name == "floorp-linux-aarch64.tar.xz") | .browser_download_url')
+          DARWIN_UNIVERSAL_URL=$(echo '${{ steps.fetch_release.outputs.assets_json }}' | jq -r '.[] | select(.name == "floorp-macOS-universal.dmg") | .browser_download_url')
+
+          # 各アーキテクチャーのSHA256ハッシュを計算
+          LINUX_X64_HASH=$(nix-prefetch-url --type sha256 "$LINUX_X64_URL")
+          LINUX_ARM_HASH=$(nix-prefetch-url --type sha256 "$LINUX_ARM_URL")
+          DARWIN_UNIVERSAL_HASH=$(nix-prefetch-url --type sha256 "$DARWIN_UNIVERSAL_URL")
+
+          # sources.json を生成
+          jq -n \
+            --arg version "${{ steps.fetch_release.outputs.version }}" \
+            --arg linux_x64_url "$LINUX_X64_URL" \
+            --arg linux_x64_hash "$LINUX_X64_HASH" \
+            --arg linux_arm_url "$LINUX_ARM_URL" \
+            --arg linux_arm_hash "$LINUX_ARM_HASH" \
+            --arg darwin_universal_url "$DARWIN_UNIVERSAL_URL" \
+            --arg darwin_universal_hash "$DARWIN_UNIVERSAL_HASH" \
+          '{
+            version: $version,
+            sources: {
+              "x86_64-linux": {
+                url: $linux_x64_url,
+                sha256: $linux_x64_hash
+              },
+              "aarch64-linux": {
+                url: $linux_arm_url,
+                sha256: $linux_arm_hash
+              },
+              "x86_64-darwin": {
+                url: $darwin_universal_url,
+                sha256: $darwin_universal_hash
+              },
+              "aarch64-darwin": {
+                url: $darwin_universal_url,
+                sha256: $darwin_universal_hash
+              }
+            }
+          }' > sources.json
+
+      - name: Check for changes
+        id: verify_changes
+        run: |
+          if [[ -n $(git status --porcelain sources.json) ]]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
           else
-            echo "update-needed=true" >> $GITHUB_OUTPUT
-            echo "Update needed: ${{ steps.current.outputs.version }} → ${{ steps.latest.outputs.version }}"
+            echo "changed=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Update Floorp package
-        if: steps.check.outputs.update-needed == 'true'
-        run: |
-          echo "Updating Floorp to version ${{ steps.latest.outputs.version }}"
-          nix run github:Mic92/nix-update -- floorp --flake --version=${{ steps.latest.outputs.version }}
-
-      - name: Test build
-        if: steps.check.outputs.update-needed == 'true'
-        run: |
-          echo "Testing build for Floorp ${{ steps.latest.outputs.version }}"
-          nix build .#floorp --print-build-logs
-
       - name: Create Pull Request
-        if: steps.check.outputs.update-needed == 'true'
-        uses: peter-evans/create-pull-request@v6
+        if: steps.verify_changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore: update floorp to ${{ steps.latest.outputs.version }}"
-          title: "Update Floorp to ${{ steps.latest.outputs.version }}"
+          commit-message: "chore: update sources.json for floorp ${{ steps.fetch_release.outputs.version }}"
+          title: "chore: update sources.json for floorp ${{ steps.fetch_release.outputs.version }}"
           body: |
-            Automated update of Floorp to version ${{ steps.latest.outputs.version }}
-            
-            - Build tested successfully
-            - Hash automatically updated by nix-update
-            
-            **Changes:**
-            - Version: ${{ steps.current.outputs.version }} → ${{ steps.latest.outputs.version }}
-          branch: update-floorp-${{ steps.latest.outputs.version }}
+            `sources.json` を更新するプルリクエストの作成
+            新しいバージョン: `${{ steps.fetch_release.outputs.version }}`
+          branch: auto-update-sources
           delete-branch: true
-          labels: |
-            automated-update
-            dependencies
