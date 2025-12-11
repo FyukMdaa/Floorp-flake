@@ -34,7 +34,7 @@ jobs:
           echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
           echo "assets_json<<EOF" >> $GITHUB_OUTPUT
           echo "$ASSETS_JSON" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPU
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Generate new sources.json
         run: |
