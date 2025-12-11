@@ -23,7 +23,7 @@ NixOS用のFloorpブラウザflakeです。nixpkgsよりも upstream のリリ�
         {
           nixpkgs.overlays = [ floorp.overlays.default ];
 
-          environment.systemPackages = [ pkgs.floorp ];
+          environment.systemPackages = [ pkgs.floorp-bin ];
         }
       ];
     };
@@ -49,7 +49,7 @@ NixOS用のFloorpブラウザflakeです。nixpkgsよりも upstream のリリ�
       modules = [
         {
           nixpkgs.overlays = [ floorp.overlays.default ];
-          home.packages = [ pkgs.floorp ];
+          home.packages = [ pkgs.floorp-bin ];
         }
       ];
     };
