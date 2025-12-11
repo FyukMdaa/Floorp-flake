@@ -20,7 +20,8 @@
   in {
     overlays.default = final: prev: {
       floorp-bin-unwrapped = prev.floorp-bin-unwrapped.overrideAttrs (oldAttrs: {
-        # sources.json からバージョンとソース情報を取得
+        sources = builtins.fromJSON (builtins.readFile "${self}/sources.json");
+
         version = sources.version;
         sourceInfo = sources.sources.${final.stdenv.hostPlatform.system} or (throw "Unsupported system: ${final.stdenv.hostPlatform.system}");
 
