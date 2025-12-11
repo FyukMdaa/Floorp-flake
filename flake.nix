@@ -16,10 +16,9 @@
 
   in {
     overlays.default = final: prev: {
-      floorp-bin-unwrapped = prev.floorp-bin-unwrapped.overrideAttrs (oldAttrs: {
-        # sources.json を読み込む
-        sources = builtins.fromJSON (builtins.readFile "${self}/sources.json");
+      sources = builtins.fromJSON (builtins.readFile "${self}/sources.json");
 
+      floorp-bin-unwrapped = prev.floorp-bin-unwrapped.overrideAttrs (oldAttrs: {
         version = sources.version;
         src = final.fetchurl (
           sources.sources.${final.stdenv.hostPlatform.system} or (throw "Unsupported system: ${final.stdenv.hostPlatform.system}")
