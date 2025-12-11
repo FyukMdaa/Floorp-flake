@@ -19,9 +19,9 @@
       sources = builtins.fromJSON (builtins.readFile "${self}/sources.json");
 
       floorp-bin-unwrapped = prev.floorp-bin-unwrapped.overrideAttrs (oldAttrs: {
-        version = sources.version;
+        version = final.sources.version;
         src = final.fetchurl (
-          sources.sources.${final.stdenv.hostPlatform.system} or (throw "Unsupported system: ${final.stdenv.hostPlatform.system}")
+          final.sources.sources.${final.stdenv.hostPlatform.system} or (throw "Unsupported system: ${final.stdenv.hostPlatform.system}")
         );
       });
 
