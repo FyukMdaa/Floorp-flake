@@ -95,7 +95,8 @@ NixOS用のFloorpブラウザflakeです。nixpkgsよりも upstream のリリ�
 
 ## 自動更新
 
-GitHub Actionsが毎日自動でFloorpの最新版をチェックし、新しいバージョンがあればPRを作成します。
+~~GitHub Actionsが毎日自動でFloorpの最新版をチェックし、新しいバージョンがあればPRを作成します。~~
+手動更新に切り替えました。自動更新をする場合は`.github/workflows/update.yml`にスケジュールを作成してください。
 
 ### 自動PR作成の仕組み
 
