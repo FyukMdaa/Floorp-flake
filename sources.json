@@ -1,21 +1,21 @@
 {
-  "version": "12.10.2",
+  "version": "12.10.3",
   "sources": {
     "x86_64-linux": {
-      "url": "https://github.com/Floorp-Projects/Floorp/releases/download/v12.10.2/floorp-linux-x86_64.tar.xz",
-      "sha256": "04697gss404bzf8kcj8ihz00bhwgl9qal2ci5iv6l2mp2rjfq540"
+      "url": "https://github.com/Floorp-Projects/Floorp/releases/download/v12.10.3/floorp-linux-x86_64.tar.xz",
+      "sha256": "0gwq8qsfm27fd9jkcjdd1sjaqgn1q8mf6f2j8g3cb5551p86r1pv"
     },
     "aarch64-linux": {
-      "url": "https://github.com/Floorp-Projects/Floorp/releases/download/v12.10.2/floorp-linux-aarch64.tar.xz",
-      "sha256": "0awh5kfpqpfskl4wizf92hbgn9pa8flmlnfcxzbrjl5sy6gr3h56"
+      "url": "https://github.com/Floorp-Projects/Floorp/releases/download/v12.10.3/floorp-linux-aarch64.tar.xz",
+      "sha256": "1qq1g1q5r7nz3xi71ciwx4807hs2akapnqpqm5sr708zjjvjvxmj"
     },
     "x86_64-darwin": {
-      "url": "https://github.com/Floorp-Projects/Floorp/releases/download/v12.10.2/floorp-macOS-universal.dmg",
-      "sha256": "0vbsdzlz5i7l99is4cbcl6b79djglq4gz6anj14n076qy7vfj9fj"
+      "url": "https://github.com/Floorp-Projects/Floorp/releases/download/v12.10.3/floorp-macOS-universal.dmg",
+      "sha256": "1bkdvdwsgw6s80sy0asxwgr1p45ff23lyack19yf7blpmsx7wisn"
     },
     "aarch64-darwin": {
-      "url": "https://github.com/Floorp-Projects/Floorp/releases/download/v12.10.2/floorp-macOS-universal.dmg",
-      "sha256": "0vbsdzlz5i7l99is4cbcl6b79djglq4gz6anj14n076qy7vfj9fj"
+      "url": "https://github.com/Floorp-Projects/Floorp/releases/download/v12.10.3/floorp-macOS-universal.dmg",
+      "sha256": "1bkdvdwsgw6s80sy0asxwgr1p45ff23lyack19yf7blpmsx7wisn"
     }
   }
 }
