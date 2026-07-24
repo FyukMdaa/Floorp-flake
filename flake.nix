@@ -37,5 +37,10 @@
         buildInputs = [ (pkgsFor.${system}.extend self.overlays.default).floorp-bin ];
       };
     });
+
+    homeModules = {
+      natsumi-browser = import ./modules/natsumi-browser.nix { inherit self; };
+      default = self.homeModules.natsumi-browser;
+    };
   };
 }
