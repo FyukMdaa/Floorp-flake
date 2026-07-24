@@ -60,10 +60,6 @@
       floorp-bin-natsumi = pkgs.floorp-bin-natsumi;
     });
 
-    packages = forAllSystems (system: {
-      default = (pkgsFor.${system}.extend self.overlays.default).floorp-bin;
-    });
-
     devShells = forAllSystems (system: {
       default = pkgsFor.${system}.mkShell {
         buildInputs = [ (pkgsFor.${system}.extend self.overlays.default).floorp-bin ];
