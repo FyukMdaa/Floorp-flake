@@ -150,7 +150,9 @@ in
       package = lib.mkOption {
         type = lib.types.nullOr lib.types.package;
         default =
-          if pkgs ? floorp-bin then
+          if pkgs ? floorp-bin-natsumi then
+            pkgs.floorp-bin-natsumi
+          else if pkgs ? floorp-bin then
             pkgs.floorp-bin.override (old: {
               extraPrefsFiles = (old.extraPrefsFiles or [ ]) ++ [ "${fxAutoconfigSrc}/program/config.js" ];
             })
