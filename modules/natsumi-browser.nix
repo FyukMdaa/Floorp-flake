@@ -66,6 +66,22 @@ let
     content natsumi-icons ../natsumi/icons/
   '';
 
+  # fx-autoconfig's `profile/chrome/utils` already ships its own
+  # chrome.manifest; we need Natsumi's variant instead. Build a single
+  # pre-composed directory rather than symlinking the whole tree AND
+  # separately declaring chrome.manifest -- doing both at once makes
+  # home-manager try to manage the same path two different ways
+  # (recursive symlink vs. a plain file), which fails at activation time.
+  natsumiAppendUtilsDir = pkgs.runCommand "natsumi-append-utils" { } ''
+    mkdir -p "$out"
+    cp -r ${fxAutoconfigSrc}/profile/chrome/utils/. "$out/"
+    chmod -R u+w "$out"
+    rm -f "$out/chrome.manifest"
+    cat > "$out/chrome.manifest" <<'MANIFEST'
+    ${natsumiAppendManifest}
+    MANIFEST
+  '';
+
   mkProfileConfig = profile:
     let
       chromeDir = "${cfg.browserDir}/${profile}/chrome";
@@ -81,18 +97,11 @@ let
         };
       }
       (lib.mkIf cfg.append.enable {
-        "${chromeDir}/utils" = {
-          source = "${fxAutoconfigSrc}/profile/chrome/utils";
-          recursive = true;
-        };
+        "${chromeDir}/utils".source = natsumiAppendUtilsDir;
         "${chromeDir}/resources" = {
           source = "${fxAutoconfigSrc}/profile/chrome/resources";
           recursive = true;
         };
-        # Overrides fx-autoconfig's default chrome.manifest with the one
-        # Natsumi's README asks for, so both loaders + Natsumi's scripts and
-        # icons are registered correctly.
-        "${chromeDir}/utils/chrome.manifest".text = natsumiAppendManifest;
       })
     ];
 in
