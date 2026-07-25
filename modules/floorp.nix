@@ -118,7 +118,7 @@ let
     ];
 in
 {
-  options.programs.floorp = {
+  options.programs.floorp-bin = {
     enable = lib.mkEnableOption "Floorp browser";
 
     package = lib.mkOption {
