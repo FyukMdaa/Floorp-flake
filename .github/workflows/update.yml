@@ -1,14 +1,20 @@
-name: Update Floorp Sources
+name: Update Sources
 
 on:
   workflow_dispatch:
+  schedule:
+    # Daily at 03:00 UTC
+    - cron: "0 3 * * *"
+
+concurrency:
+  group: update-sources
+  cancel-in-progress: false
 
 jobs:
   update:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
 
     steps:
       - name: Checkout repository
@@ -21,34 +27,34 @@ jobs:
         with:
           nix_path: nixpkgs=channel:nixos-unstable
 
+      # ---------------------------------------------------------------
+      # Floorp
+      # ---------------------------------------------------------------
       - name: Fetch latest Floorp release info
-        id: fetch_release
+        id: fetch_floorp
         run: |
           RELEASE_INFO=$(curl -s https://api.github.com/repos/Floorp-Projects/Floorp/releases/latest)
           LATEST_VERSION=$(echo "$RELEASE_INFO" | jq -r .tag_name | sed 's/v//')
           ASSETS_JSON=$(echo "$RELEASE_INFO" | jq '.assets')
 
-          echo "Latest version: $LATEST_VERSION"
+          echo "Latest Floorp version: $LATEST_VERSION"
           echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
           echo "assets_json<<EOF" >> $GITHUB_OUTPUT
           echo "$ASSETS_JSON" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Generate new sources.json
+      - name: Generate new sources.json (Floorp)
         run: |
-          # 各アーキテクチャーのURLを取得
-          LINUX_X64_URL=$(echo '${{ steps.fetch_release.outputs.assets_json }}' | jq -r '.[] | select(.name == "floorp-linux-x86_64.tar.xz") | .browser_download_url')
-          LINUX_ARM_URL=$(echo '${{ steps.fetch_release.outputs.assets_json }}' | jq -r '.[] | select(.name == "floorp-linux-aarch64.tar.xz") | .browser_download_url')
-          DARWIN_UNIVERSAL_URL=$(echo '${{ steps.fetch_release.outputs.assets_json }}' | jq -r '.[] | select(.name == "floorp-macOS-universal.dmg") | .browser_download_url')
+          LINUX_X64_URL=$(echo '${{ steps.fetch_floorp.outputs.assets_json }}' | jq -r '.[] | select(.name == "floorp-linux-x86_64.tar.xz") | .browser_download_url')
+          LINUX_ARM_URL=$(echo '${{ steps.fetch_floorp.outputs.assets_json }}' | jq -r '.[] | select(.name == "floorp-linux-aarch64.tar.xz") | .browser_download_url')
+          DARWIN_UNIVERSAL_URL=$(echo '${{ steps.fetch_floorp.outputs.assets_json }}' | jq -r '.[] | select(.name == "floorp-macOS-universal.dmg") | .browser_download_url')
 
-          # 各アーキテクチャーのSHA256ハッシュを計算
           LINUX_X64_HASH=$(nix-prefetch-url --type sha256 "$LINUX_X64_URL")
           LINUX_ARM_HASH=$(nix-prefetch-url --type sha256 "$LINUX_ARM_URL")
           DARWIN_UNIVERSAL_HASH=$(nix-prefetch-url --type sha256 "$DARWIN_UNIVERSAL_URL")
 
-          # sources.json を生成
           jq -n \
-            --arg version "${{ steps.fetch_release.outputs.version }}" \
+            --arg version "${{ steps.fetch_floorp.outputs.version }}" \
             --arg linux_x64_url "$LINUX_X64_URL" \
             --arg linux_x64_hash "$LINUX_X64_HASH" \
             --arg linux_arm_url "$LINUX_ARM_URL" \
@@ -58,43 +64,63 @@ jobs:
           '{
             version: $version,
             sources: {
-              "x86_64-linux": {
-                url: $linux_x64_url,
-                sha256: $linux_x64_hash
-              },
-              "aarch64-linux": {
-                url: $linux_arm_url,
-                sha256: $linux_arm_hash
-              },
-              "x86_64-darwin": {
-                url: $darwin_universal_url,
-                sha256: $darwin_universal_hash
-              },
-              "aarch64-darwin": {
-                url: $darwin_universal_url,
-                sha256: $darwin_universal_hash
-              }
+              "x86_64-linux": { url: $linux_x64_url, sha256: $linux_x64_hash },
+              "aarch64-linux": { url: $linux_arm_url, sha256: $linux_arm_hash },
+              "x86_64-darwin": { url: $darwin_universal_url, sha256: $darwin_universal_hash },
+              "aarch64-darwin": { url: $darwin_universal_url, sha256: $darwin_universal_hash }
             }
           }' > sources.json
 
+      # ---------------------------------------------------------------
+      # Natsumi Browser + fx-autoconfig
+      # ---------------------------------------------------------------
+      - name: Fetch latest Natsumi Browser release info
+        id: fetch_natsumi
+        run: |
+          RELEASE_INFO=$(curl -s https://api.github.com/repos/greeeen-dev/natsumi-browser/releases/latest)
+          LATEST_VERSION=$(echo "$RELEASE_INFO" | jq -r .tag_name | sed 's/^v//')
+          echo "Latest Natsumi Browser version: $LATEST_VERSION"
+          echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Generate new natsumi-sources.json
+        run: |
+          NATSUMI_VERSION="${{ steps.fetch_natsumi.outputs.version }}"
+          NATSUMI_URL="https://github.com/greeeen-dev/natsumi-browser/archive/refs/tags/v${NATSUMI_VERSION}.tar.gz"
+          NATSUMI_HASH=$(nix-prefetch-url --type sha256 "$NATSUMI_URL")
+
+          # fx-autoconfig has no releases/tags, so we track the master branch.
+          FX_AUTOCONFIG_URL="https://github.com/MrOtherGuy/fx-autoconfig/archive/refs/heads/master.tar.gz"
+          FX_AUTOCONFIG_HASH=$(nix-prefetch-url --type sha256 "$FX_AUTOCONFIG_URL")
+
+          jq -n \
+            --arg natsumi_version "$NATSUMI_VERSION" \
+            --arg natsumi_url "$NATSUMI_URL" \
+            --arg natsumi_hash "$NATSUMI_HASH" \
+            --arg fx_autoconfig_rev "master" \
+            --arg fx_autoconfig_url "$FX_AUTOCONFIG_URL" \
+            --arg fx_autoconfig_hash "$FX_AUTOCONFIG_HASH" \
+          '{
+            natsumi: { version: $natsumi_version, url: $natsumi_url, sha256: $natsumi_hash },
+            "fx-autoconfig": { rev: $fx_autoconfig_rev, url: $fx_autoconfig_url, sha256: $fx_autoconfig_hash }
+          }' > natsumi-sources.json
+
+      # ---------------------------------------------------------------
+      # Commit directly to the default branch (no PR)
+      # ---------------------------------------------------------------
       - name: Check for changes
         id: verify_changes
         run: |
-          if [[ -n $(git status --porcelain sources.json) ]]; then
+          if [[ -n $(git status --porcelain sources.json natsumi-sources.json) ]]; then
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create Pull Request
+      - name: Commit and push
         if: steps.verify_changes.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore: update sources.json for floorp ${{ steps.fetch_release.outputs.version }}"
-          title: "chore: update sources.json for floorp ${{ steps.fetch_release.outputs.version }}"
-          body: |
-            `sources.json` を更新するプルリクエストの作成
-            新しいバージョン: `${{ steps.fetch_release.outputs.version }}`
-          branch: auto-update-sources
-          delete-branch: true
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add sources.json natsumi-sources.json
+          git commit -m "chore: update sources (floorp ${{ steps.fetch_floorp.outputs.version }}, natsumi ${{ steps.fetch_natsumi.outputs.version }})"
+          git push

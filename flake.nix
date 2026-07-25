@@ -17,6 +17,7 @@
   in {
     overlays.default = final: prev: {
       sources = builtins.fromJSON (builtins.readFile "${self}/sources.json");
+      natsumiSources = builtins.fromJSON (builtins.readFile "${self}/natsumi-sources.json");
 
       floorp-bin-unwrapped = prev.floorp-bin-unwrapped.overrideAttrs (oldAttrs: {
         version = final.sources.version;
@@ -26,10 +27,39 @@
       });
 
       floorp-bin = final.wrapFirefox final.floorp-bin-unwrapped {};
+
+      # fx-autoconfig source, used to load Natsumi Append's JS features into
+      # Floorp itself (see modules/floorp.nix for the profile side).
+      fx-autoconfig-source = final.stdenvNoCC.mkDerivation {
+        pname = "fx-autoconfig-source";
+        version = final.natsumiSources.fx-autoconfig.rev;
+        src = final.fetchurl {
+          url = final.natsumiSources.fx-autoconfig.url;
+          sha256 = final.natsumiSources.fx-autoconfig.sha256;
+        };
+        dontBuild = true;
+        installPhase = ''
+          mkdir -p "$out"
+          cp -r . "$out/"
+        '';
+      };
+
+      # Floorp, pre-wired to load fx-autoconfig so Natsumi Append's JS-powered
+      # features (Miniplayer, custom themes, Single Toolbar, ...) work.
+      # Standalone convenience package (e.g. `nix run .#floorp-bin-natsumi`);
+      # the home-manager module computes this same override itself, so you
+      # don't need to reference this directly when using
+      # `programs.floorp.natsumi.append.enable = true`.
+      floorp-bin-natsumi = final.floorp-bin.override (old: {
+        extraPrefsFiles = (old.extraPrefsFiles or [ ]) ++ [ "${final.fx-autoconfig-source}/program/config.js" ];
+      });
     };
 
-    packages = forAllSystems (system: {
-      default = (pkgsFor.${system}.extend self.overlays.default).floorp-bin;
+    packages = forAllSystems (system: let
+      pkgs = pkgsFor.${system}.extend self.overlays.default;
+    in {
+      default = pkgs.floorp-bin;
+      floorp-bin-natsumi = pkgs.floorp-bin-natsumi;
     });
 
     devShells = forAllSystems (system: {
@@ -37,5 +67,10 @@
         buildInputs = [ (pkgsFor.${system}.extend self.overlays.default).floorp-bin ];
       };
     });
+
+    homeModules = {
+      floorp = import ./modules/floorp.nix { inherit self; };
+      default = self.homeModules.floorp;
+    };
   };
 }
