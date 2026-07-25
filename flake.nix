@@ -18,18 +18,18 @@
     overlays.default = final: prev: {
       sources = builtins.fromJSON (builtins.readFile "${self}/sources.json");
       natsumiSources = builtins.fromJSON (builtins.readFile "${self}/natsumi-sources.json");
-    
+
       floorp-bin-unwrapped = prev.floorp-bin-unwrapped.overrideAttrs (oldAttrs: {
         version = final.sources.version;
         src = final.fetchurl (
           final.sources.sources.${final.stdenv.hostPlatform.system} or (throw "Unsupported system: ${final.stdenv.hostPlatform.system}")
         );
       });
-    
+
       floorp-bin = final.wrapFirefox final.floorp-bin-unwrapped {};
-    
+
       # fx-autoconfig source, used to load Natsumi Append's JS features into
-      # Floorp itself (see modules/natsumi-browser.nix for the profile side).
+      # Floorp itself (see modules/floorp.nix for the profile side).
       fx-autoconfig-source = final.stdenvNoCC.mkDerivation {
         pname = "fx-autoconfig-source";
         version = final.natsumiSources.fx-autoconfig.rev;
@@ -43,16 +43,18 @@
           cp -r . "$out/"
         '';
       };
-    
+
       # Floorp, pre-wired to load fx-autoconfig so Natsumi Append's JS-powered
-      # features (Miniplayer, custom themes, Single Toolbar, ...) work. Pair
-      # with `programs.natsumi-browser.append.enable = true` in the
-      # home-manager module, which installs the matching profile-side files.
+      # features (Miniplayer, custom themes, Single Toolbar, ...) work.
+      # Standalone convenience package (e.g. `nix run .#floorp-bin-natsumi`);
+      # the home-manager module computes this same override itself, so you
+      # don't need to reference this directly when using
+      # `programs.floorp.natsumi.append.enable = true`.
       floorp-bin-natsumi = final.floorp-bin.override (old: {
         extraPrefsFiles = (old.extraPrefsFiles or [ ]) ++ [ "${final.fx-autoconfig-source}/program/config.js" ];
       });
     };
-    
+
     packages = forAllSystems (system: let
       pkgs = pkgsFor.${system}.extend self.overlays.default;
     in {
@@ -67,8 +69,8 @@
     });
 
     homeModules = {
-      natsumi-browser = import ./modules/natsumi-browser.nix { inherit self; };
-      default = self.homeModules.natsumi-browser;
+      floorp = import ./modules/floorp.nix { inherit self; };
+      default = self.homeModules.floorp;
     };
   };
 }
