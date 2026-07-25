@@ -7,7 +7,7 @@
 #     imports = [ floorp.homeModules.floorp ];
 #     nixpkgs.overlays = [ floorp.overlays.default ];
 #
-#     programs.floorp = {
+#     programs.floorp-bin = {
 #       enable = true;
 #       natsumi = {
 #         enable = true;
@@ -23,7 +23,7 @@
 { config, lib, pkgs, ... }:
 
 let
-  cfg = config.programs.floorp;
+  cfg = config.programs.floorp-bin;
 
   natsumiSources = builtins.fromJSON (builtins.readFile "${self}/natsumi-sources.json");
 
@@ -84,7 +84,7 @@ let
 
   # The final Floorp package: `cfg.package` (defaults to pkgs.floorp-bin from
   # this flake's overlay) wrapped with fx-autoconfig's config.js when Natsumi
-  # Append is requested, so `programs.floorp.natsumi.append.enable` is the
+  # Append is requested, so `programs.floorp-bin.natsumi.append.enable` is the
   # single switch controlling both the package and the profile-side files.
   finalPackage =
     if cfg.natsumi.enable && cfg.natsumi.append.enable then
@@ -124,9 +124,9 @@ in
     package = lib.mkOption {
       type = lib.types.package;
       default = pkgs.floorp-bin or (throw ''
-        programs.floorp.enable is set but pkgs.floorp-bin doesn't exist.
+        programs.floorp-bin.enable is set but pkgs.floorp-bin doesn't exist.
         Add `nixpkgs.overlays = [ floorp.overlays.default ];` (where `floorp`
-        is this flake), or set programs.floorp.package yourself.
+        is this flake), or set programs.floorp-bin.package yourself.
       '');
       defaultText = lib.literalExpression "pkgs.floorp-bin (from this flake's overlay)";
       description = "The Floorp package to install.";
@@ -187,7 +187,7 @@ in
     (lib.mkIf cfg.natsumi.enable {
       assertions = [{
         assertion = cfg.natsumi.profiles != [ ];
-        message = "programs.floorp.natsumi.enable is set but programs.floorp.natsumi.profiles is empty; add the profile folder name(s) under ${cfg.natsumi.browserDir}.";
+        message = "programs.floorp-bin.natsumi.enable is set but programs.floorp-bin.natsumi.profiles is empty; add the profile folder name(s) under ${cfg.natsumi.browserDir}.";
       }];
 
       home.file = lib.mkMerge (map mkProfileConfig cfg.natsumi.profiles);
