@@ -159,6 +159,20 @@ in
         (via extraPrefsFiles) -- no separate package selection needed
       '';
 
+      disableUpdater = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = ''
+          Sets `natsumi.updater.disabled` so Natsumi's built-in self-updater
+          (only active when `append.enable` is set) doesn't try to download
+          and overwrite `chrome/natsumi`, which is a read-only Nix store
+          path. This flake's own update workflow (see natsumi-sources.json)
+          is the intended way to get new Natsumi versions. Set to `false`,
+          or override the `natsumi.updater.disabled` key in `settings`, to
+          let the in-browser updater run anyway.
+        '';
+      };
+
       settings = lib.mkOption {
         type = with lib.types; attrsOf (attrsOf (oneOf [ bool int str ]));
         default = { };
@@ -193,15 +207,23 @@ in
       home.file = lib.mkMerge (map mkProfileConfig cfg.natsumi.profiles);
     })
 
-    (lib.mkIf (cfg.natsumi.enable && cfg.natsumi.settings != { }) {
-      home.file = lib.mkMerge (lib.mapAttrsToList
-        (profile: prefs: {
-          "${cfg.natsumi.browserDir}/${profile}/user.js".text =
-            lib.concatStrings (lib.mapAttrsToList
-              (name: value: ''user_pref("${name}", ${builtins.toJSON value});'' + "\n")
-              prefs);
-        })
-        cfg.natsumi.settings);
+    (lib.mkIf cfg.natsumi.enable {
+      home.file = lib.mkMerge (map
+        (profile:
+          let
+            defaultPrefs = lib.optionalAttrs (cfg.natsumi.append.enable && cfg.natsumi.disableUpdater) {
+              "natsumi.updater.disabled" = true;
+            };
+            userPrefs = cfg.natsumi.settings.${profile} or { };
+            prefs = defaultPrefs // userPrefs;
+          in
+          lib.optionalAttrs (prefs != { }) {
+            "${cfg.natsumi.browserDir}/${profile}/user.js".text =
+              lib.concatStrings (lib.mapAttrsToList
+                (name: value: ''user_pref("${name}", ${builtins.toJSON value});'' + "\n")
+                prefs);
+          })
+        cfg.natsumi.profiles);
     })
   ]);
 }
