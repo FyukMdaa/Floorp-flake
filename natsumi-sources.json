@@ -1,8 +1,8 @@
 {
   "natsumi": {
-    "version": "6.12.4",
-    "url": "https://github.com/greeeen-dev/natsumi-browser/archive/refs/tags/v6.12.4.tar.gz",
-    "sha256": "0d8l4hvvpk7a4601l6p4x164n29f424jm5qpfrwgcyhm5177d52a"
+    "version": "6.12.5",
+    "url": "https://github.com/greeeen-dev/natsumi-browser/archive/refs/tags/v6.12.5.tar.gz",
+    "sha256": "0ddr515p31sic8pn01aipn0pngigip451yq1zzz77m2g5471w9gr"
   },
   "fx-autoconfig": {
     "rev": "master",
